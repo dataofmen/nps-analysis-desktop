@@ -1,0 +1,12 @@
+node_modules/
+__pycache__/
+*.pyc
+.DS_Store
+.env
+backend/dist/
+backend/build/
+backend/*.spec
+frontend/dist/
+frontend/dist_electron/
+.vscode/
+.idea/
