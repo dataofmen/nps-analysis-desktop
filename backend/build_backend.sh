@@ -13,7 +13,7 @@ cd "$(dirname "$0")"
 # --name: Name of the executable
 # --clean: Clean cache
 # --hidden-import: Explicitly import dependencies that might be missed
-pyinstaller --onefile \
+pyinstaller --onedir \
     --name nps-backend \
     --clean \
     --hidden-import=uvicorn \
@@ -23,6 +23,9 @@ pyinstaller --onefile \
     --hidden-import=openpyxl \
     --hidden-import=chardet \
     --hidden-import=requests \
+    --hidden-import=encodings \
+    --collect-all uvicorn \
+    --collect-all pandas \
     main.py
 
 echo "Build complete. Executable is in backend/dist/nps-backend"

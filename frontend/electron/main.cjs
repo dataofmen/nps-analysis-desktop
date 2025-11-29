@@ -20,11 +20,13 @@ function getBackendPath() {
 
         // However, the user wants a "packaged" app.
         // Let's point to the built executable in ../backend/dist/nps-backend
-        return path.join(__dirname, '../../backend/dist/nps-backend');
+        // For onedir, the executable is inside the folder
+        // backend/dist/nps-backend/nps-backend
+        return path.join(__dirname, '../../backend/dist/nps-backend/nps-backend');
     } else {
-        // In prod, the executable is in resources
-        // macOS: Contents/Resources/nps-backend
-        return path.join(process.resourcesPath, 'nps-backend');
+        // In prod, the folder is copied to resources/nps-backend
+        // So executable is resources/nps-backend/nps-backend
+        return path.join(process.resourcesPath, 'nps-backend', 'nps-backend');
     }
 }
 

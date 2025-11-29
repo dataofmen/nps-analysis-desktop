@@ -1,12 +1,20 @@
+import sys
+print("DEBUG: Starting main.py imports...", flush=True)
 from fastapi import FastAPI, UploadFile, File, HTTPException
+print("DEBUG: Imported fastapi", flush=True)
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Dict, Optional
 import pandas as pd
+print("DEBUG: Imported pandas", flush=True)
 import data_processing
+print("DEBUG: Imported data_processing", flush=True)
 import weighting
+print("DEBUG: Imported weighting", flush=True)
 import analysis
+print("DEBUG: Imported analysis", flush=True)
 import food_nps
+print("DEBUG: Imported food_nps", flush=True)
 
 app = FastAPI(title="NPS Analysis Tool")
 
@@ -658,3 +666,31 @@ async def get_food_nps_status():
         "population_segments": len(data_store["food_population"]) if data_store["food_population"] is not None else 0,
         "coding_rows": len(data_store["food_coding"]) if data_store["food_coding"] is not None else 0
     }
+
+if __name__ == "__main__":
+    import sys
+    import os
+    
+    # Write to a log file in the current directory
+    log_file = os.path.join(os.getcwd(), "backend_startup.log")
+    with open(log_file, "w") as f:
+        f.write("Starting backend...\n")
+        
+    try:
+        import uvicorn
+        import multiprocessing
+        
+        with open(log_file, "a") as f:
+            f.write("Imports successful.\n")
+            
+        multiprocessing.freeze_support()
+        
+        with open(log_file, "a") as f:
+            f.write("Starting uvicorn...\n")
+            
+        uvicorn.run(app, host="0.0.0.0", port=8000)
+    except Exception as e:
+        with open(log_file, "a") as f:
+            f.write(f"Error: {str(e)}\n")
+            import traceback
+            traceback.print_exc(file=f)
