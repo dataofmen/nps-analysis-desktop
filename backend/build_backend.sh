@@ -14,6 +14,7 @@ cd "$(dirname "$0")"
 # --clean: Clean cache
 # --hidden-import: Explicitly import dependencies that might be missed
 pyinstaller --onedir \
+    --paths . \
     --name nps-backend \
     --clean \
     --hidden-import=uvicorn \
@@ -24,8 +25,16 @@ pyinstaller --onedir \
     --hidden-import=chardet \
     --hidden-import=requests \
     --hidden-import=encodings \
+    --hidden-import=data_processing \
+    --hidden-import=weighting \
+    --hidden-import=analysis \
+    --hidden-import=food_nps \
     --collect-all uvicorn \
     --collect-all pandas \
     main.py
+
+# Manually copy local modules to _internal to ensure they are found
+echo "Copying local modules to _internal..."
+cp data_processing.py weighting.py analysis.py food_nps.py dist/nps-backend/_internal/
 
 echo "Build complete. Executable is in backend/dist/nps-backend"
