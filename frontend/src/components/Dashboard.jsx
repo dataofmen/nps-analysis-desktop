@@ -328,52 +328,101 @@ const Dashboard = ({ columns, weightingConfig, dataVersion }) => {
         }
     };
 
-    const handleExportQuantitative = async () => {
+    const handleExportQuantitative = () => {
         if (!metricsResults) return;
+
         try {
-            const response = await fetch('http://localhost:8000/export/quantitative', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    nps_column: npsCol,
-                    top_box_columns: topBoxCols,
-                    group_by_columns: groupByCols,
-                    group_weighting_columns: groupWeightingCols,
-                    open_end_columns: [],
-                    weighting_config: weightingConfig
-                }),
+            // 1. Overview Data
+            let csvContent = "Metric,Value\n";
+            csvContent += `NPS Score,${metricsResults.nps?.score !== undefined ? Number(metricsResults.nps.score).toFixed(1) : Number(metricsResults.nps).toFixed(1)}\n`;
+            csvContent += `Promoters %,${metricsResults.nps?.breakdown?.promoters || 0}\n`;
+            csvContent += `Passives %,${metricsResults.nps?.breakdown?.passives || 0}\n`;
+            csvContent += `Detractors %,${metricsResults.nps?.breakdown?.detractors || 0}\n`;
+
+            // Top Box
+            Object.entries(metricsResults.top_box_3_percent).forEach(([col, score]) => {
+                csvContent += `Top 3 Box % (${col}),${Number(score).toFixed(1)}\n`;
             });
-            if (!response.ok) throw new Error('Export failed');
-            const blob = await response.blob();
+
+            // 2. Segmented Results
+            if (metricsResults.segmented_results && Object.keys(metricsResults.segmented_results).length > 0) {
+                csvContent += "\n\nSegmented Analysis\n";
+                csvContent += "Group Column,Group Value,NPS,Top Box %\n";
+
+                Object.entries(metricsResults.segmented_results).forEach(([groupCol, groupData]) => {
+                    Object.entries(groupData).forEach(([groupVal, stats]) => {
+                        // Handle multiple top box columns by joining them or just taking the first?
+                        // For CSV simplicity, let's just list them.
+                        const topBoxStr = Object.entries(stats.top_box_3_percent)
+                            .map(([k, v]) => `${k}: ${Number(v).toFixed(1)}%`)
+                            .join("; ");
+
+                        // Escape commas in values
+                        const safeGroupVal = `"${groupVal.replace(/"/g, '""')}"`;
+                        csvContent += `"${groupCol}",${safeGroupVal},${Number(stats.nps).toFixed(1)},"${topBoxStr}"\n`;
+                    });
+                });
+            }
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'nps_analysis_quantitative.xlsx';
+            a.download = 'nps_analysis_quantitative.csv';
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(url);
             document.body.removeChild(a);
         } catch (error) {
             console.error('Export error:', error);
-            alert('Failed to export Excel file.');
+            alert('Failed to export CSV file.');
         }
     };
 
-    const handleExportOpenEnded = async () => {
+    const handleExportOpenEnded = () => {
         if (!rrResults) return;
         try {
-            const response = await fetch('http://localhost:8000/export/open-ended', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    nps_column: openEndNpsCol,
-                    top_box_columns: [],
-                    open_end_columns: openEndCols.filter(c => c !== ''),
-                    weighting_config: weightingConfig
-                }),
-            });
-            if (!response.ok) throw new Error('Export failed');
-            const blob = await response.blob();
+            let mdContent = "# Open-Ended Analysis Results\n\n";
+
+            if (rrResults.response_rates) {
+                Object.entries(rrResults.response_rates).forEach(([col, segments]) => {
+                    mdContent += `## Column: ${col}\n\n`;
+                    Object.entries(segments).forEach(([segName, stats]) => {
+                        mdContent += `### Segment: ${segName}\n`;
+                        mdContent += `- **Total Count**: ${stats.total_count}\n`;
+                        mdContent += `- **Response Rate**: ${stats.response_rate}%\n\n`;
+
+                        if (stats.category_stats && Object.keys(stats.category_stats).length > 0) {
+                            mdContent += "| Category | Count | Percentage |\n";
+                            mdContent += "|---|---|---|\n";
+                            // category_stats is likely a list or dict? 
+                            // In backend it returns a list of dicts for 'category_stats' inside the segment stats?
+                            // Wait, let's check the backend response structure for 'category_stats'.
+                            // In backend: 'category_stats' is a list of dicts: {category, count, weight, response_rate}
+                            // BUT in Dashboard.jsx MultiResultCard, it iterates Object.entries(data).
+                            // Let's check MultiResultCard usage.
+                            // It passes `data={stats}`.
+                            // In `analyze_response_rates` backend:
+                            // `col_results[seg_name] = stats` where stats is from `calculate_category_stats`.
+                            // `calculate_category_stats` returns a DICT: {category: percentage, ...} ?
+                            // No, let's check `analysis.py`.
+
+                            // Assuming stats is a dict of category -> percentage for now based on MultiResultCard.
+                            // MultiResultCard: Object.entries(data).map(([key, value]) => ...
+                            // So stats IS { "Category A": 10.5, "Category B": 5.2 ... }
+
+                            Object.entries(stats).forEach(([cat, pct]) => {
+                                mdContent += `| ${cat} | - | ${Number(pct).toFixed(1)}% |\n`;
+                            });
+                        } else {
+                            mdContent += "No category data.\n";
+                        }
+                        mdContent += "\n";
+                    });
+                });
+            }
+
+            const blob = new Blob([mdContent], { type: 'text/markdown;charset=utf-8;' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -436,7 +485,7 @@ const Dashboard = ({ columns, weightingConfig, dataVersion }) => {
                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                         </svg>
-                                        Export Excel
+                                        Export CSV
                                     </button>
                                 )}
                             </div>
