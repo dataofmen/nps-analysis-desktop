@@ -328,6 +328,66 @@ const Dashboard = ({ columns, weightingConfig, dataVersion }) => {
         }
     };
 
+    const handleExportQuantitative = async () => {
+        if (!metricsResults) return;
+        try {
+            const response = await fetch('http://localhost:8000/export/quantitative', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    nps_column: npsCol,
+                    top_box_columns: topBoxCols,
+                    group_by_columns: groupByCols,
+                    group_weighting_columns: groupWeightingCols,
+                    open_end_columns: [],
+                    weighting_config: weightingConfig
+                }),
+            });
+            if (!response.ok) throw new Error('Export failed');
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'nps_analysis_quantitative.xlsx';
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        } catch (error) {
+            console.error('Export error:', error);
+            alert('Failed to export Excel file.');
+        }
+    };
+
+    const handleExportOpenEnded = async () => {
+        if (!rrResults) return;
+        try {
+            const response = await fetch('http://localhost:8000/export/open-ended', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    nps_column: openEndNpsCol,
+                    top_box_columns: [],
+                    open_end_columns: openEndCols.filter(c => c !== ''),
+                    weighting_config: weightingConfig
+                }),
+            });
+            if (!response.ok) throw new Error('Export failed');
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'nps_analysis_open_ended.md';
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+        } catch (error) {
+            console.error('Export error:', error);
+            alert('Failed to export Markdown file.');
+        }
+    };
+
     return (
         <div className="space-y-8">
             <div className="flex items-center gap-3 mb-6">
@@ -362,9 +422,23 @@ const Dashboard = ({ columns, weightingConfig, dataVersion }) => {
                 {activeTab === 'quantitative' && (
                     <div className="space-y-6 animate-fade-in">
                         <div className="bg-white rounded-2xl shadow-soft p-6 h-full flex flex-col">
-                            <div className="flex items-center gap-2 mb-6 border-b border-slate-100 pb-4">
-                                <span className="text-2xl">📊</span>
-                                <h3 className="text-lg font-bold text-slate-800">Quantitative Metrics</h3>
+                            <div className="flex items-center justify-between mb-6 border-b border-slate-100 pb-4">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-2xl">📊</span>
+                                    <h3 className="text-lg font-bold text-slate-800">Quantitative Metrics</h3>
+                                </div>
+                                {metricsResults && (
+                                    <button
+                                        onClick={handleExportQuantitative}
+                                        className="flex items-center gap-2 px-3 py-1.5 text-sm font-bold text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-colors"
+                                        title="Export to Excel"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                        </svg>
+                                        Export Excel
+                                    </button>
+                                )}
                             </div>
 
                             <div className="space-y-6 flex-1">
@@ -505,9 +579,23 @@ const Dashboard = ({ columns, weightingConfig, dataVersion }) => {
                 {activeTab === 'open-ended' && (
                     <div className="space-y-6 animate-fade-in">
                         <div className="bg-white rounded-2xl shadow-soft p-6 h-full flex flex-col">
-                            <div className="flex items-center gap-2 mb-6 border-b border-slate-100 pb-4">
-                                <span className="text-2xl">📝</span>
-                                <h3 className="text-lg font-bold text-slate-800">Open-Ended Analysis</h3>
+                            <div className="flex items-center justify-between mb-6 border-b border-slate-100 pb-4">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-2xl">📝</span>
+                                    <h3 className="text-lg font-bold text-slate-800">Open-Ended Analysis</h3>
+                                </div>
+                                {rrResults && (
+                                    <button
+                                        onClick={handleExportOpenEnded}
+                                        className="flex items-center gap-2 px-3 py-1.5 text-sm font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors"
+                                        title="Export to Markdown"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                        </svg>
+                                        Export Markdown
+                                    </button>
+                                )}
                             </div>
 
                             <div className="space-y-6 flex-1">

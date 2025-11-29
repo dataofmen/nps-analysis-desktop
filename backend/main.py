@@ -142,15 +142,20 @@ async def analyze_data(request: AnalysisRequest):
     if df is None:
         raise HTTPException(status_code=400, detail="No data uploaded")
     
+from fastapi.responses import StreamingResponse
+import io
+
+# ... (imports)
+
+def perform_analysis(request: AnalysisRequest, df: pd.DataFrame):
     # Apply weighting if config provided
     excluded_count = 0
+    weight_col = None
+    
     if request.weighting_config and request.weighting_config.segment_columns:
         try:
             # Filter out rows with missing segment data
             initial_count = len(df)
-            # Check for missing values in segment columns
-            # We treat empty strings or whitespace-only strings as missing too if needed, 
-            # but dropna covers NaNs. Let's be safe and convert to NaN if empty.
             for col in request.weighting_config.segment_columns:
                 if col in df.columns:
                      # Replace whitespace with NaN
@@ -167,8 +172,6 @@ async def analyze_data(request: AnalysisRequest):
             weight_col = 'Weight'
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Weighting error: {str(e)}")
-    else:
-        weight_col = None
     
     # Calculate metrics
     nps = analysis.calculate_nps(df, request.nps_column, weight_col)
@@ -180,23 +183,15 @@ async def analyze_data(request: AnalysisRequest):
         for col in request.group_by_columns:
             if col in df.columns:
                 col_results = {}
-                # Get unique groups, excluding NaN/empty
-                # We use the weighted df (if weighting applied) or raw df
-                # Note: df is already filtered for missing segment_columns if weighting is on.
-                # But for the grouping column itself, we should dropna.
                 groups = df[col].dropna().unique()
                 
                 for group in groups:
-                    # Filter for this group
                     group_df = df[df[col] == group]
-                    
-                    # Determine weight column for this group
                     current_weight_col = weight_col
                     
                     # Apply Subset Weighting if configured
                     if request.group_weighting_columns and request.weighting_config:
                         try:
-                            # 1. Calculate targets for the subset of columns using Population data
                             pop_df = data_store["population"]
                             if pop_df is not None:
                                 subset_targets = weighting.calculate_targets(
@@ -204,24 +199,17 @@ async def analyze_data(request: AnalysisRequest):
                                     request.group_weighting_columns, 
                                     request.weighting_config.target_column
                                 )
-                                
-                                # 2. Calculate weights for this group using the subset targets
-                                # Note: calculate_weights returns a new DF with 'Weight' column
                                 weighted_group_df = weighting.calculate_weights(
                                     group_df, 
                                     request.group_weighting_columns, 
                                     subset_targets
                                 )
-                                
                                 group_df = weighted_group_df
                                 current_weight_col = 'Weight'
                         except Exception as e:
                             print(f"Subset weighting failed for group {group}: {e}")
-                            # Fallback to global weight (current_weight_col remains weight_col)
                     
                     group_nps_data = analysis.calculate_nps(group_df, request.nps_column, current_weight_col)
-                    # Extract just the score for segmented results to keep payload light
-                    # Unless we want breakdown for segments too? For now, just score as per plan.
                     group_nps = group_nps_data['score'] if isinstance(group_nps_data, dict) else group_nps_data
                     
                     group_top_box = analysis.calculate_top_3_box(group_df, request.top_box_columns, current_weight_col)
@@ -240,6 +228,97 @@ async def analyze_data(request: AnalysisRequest):
         "excluded_count": excluded_count,
         "segmented_results": segmented_results
     }
+
+@app.post("/analyze")
+async def analyze_data(request: AnalysisRequest):
+    # Use qualtrics data for analysis to ensure 1 row per respondent
+    df = data_store["qualtrics"]
+    if df is None:
+        df = data_store["merged"]
+        
+    if df is None:
+        raise HTTPException(status_code=400, detail="No data uploaded")
+    
+    return perform_analysis(request, df)
+
+@app.post("/export/quantitative")
+async def export_quantitative(request: AnalysisRequest):
+    df = data_store["qualtrics"]
+    if df is None:
+        df = data_store["merged"]
+    if df is None:
+        raise HTTPException(status_code=400, detail="No data uploaded")
+
+    results = perform_analysis(request, df)
+    
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        # Sheet 1: Overview
+        overview_data = {
+            "Metric": ["NPS Score", "Promoters %", "Passives %", "Detractors %", "Top Box %"],
+            "Value": [
+                results["nps"]["score"],
+                results["nps"]["breakdown"]["promoters"],
+                results["nps"]["breakdown"]["passives"],
+                results["nps"]["breakdown"]["detractors"],
+                results["top_box_3_percent"]
+            ]
+        }
+        pd.DataFrame(overview_data).to_excel(writer, sheet_name="Overview", index=False)
+        
+        # Sheet 2: Segmented Results
+        if results["segmented_results"]:
+            rows = []
+            for group_col, group_data in results["segmented_results"].items():
+                for group_val, metrics in group_data.items():
+                    rows.append({
+                        "Group Column": group_col,
+                        "Group Value": group_val,
+                        "NPS": metrics["nps"],
+                        "Top Box %": metrics["top_box_3_percent"]
+                    })
+            pd.DataFrame(rows).to_excel(writer, sheet_name="Segments", index=False)
+
+    output.seek(0)
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=nps_analysis_quantitative.xlsx"}
+    )
+
+@app.post("/export/open-ended")
+async def export_open_ended(request: AnalysisRequest):
+    # For open-ended, we need to call analyze_response_rates logic
+    # But analyze_response_rates is an endpoint, let's just call it directly or extract logic?
+    # It's better to call the function logic. 
+    # Since analyze_response_rates is async and depends on request, we can just call it.
+    # However, it returns a dict, not markdown. We need to format it.
+    
+    data = await analyze_response_rates(request)
+    
+    md_lines = ["# Open-Ended Analysis Results\n"]
+    
+    for col, segments in data["response_rates"].items():
+        md_lines.append(f"## Column: {col}\n")
+        for seg_name, stats in segments.items():
+            md_lines.append(f"### Segment: {seg_name}")
+            md_lines.append(f"- **Total Count**: {stats['total_count']}")
+            md_lines.append(f"- **Response Rate**: {stats['response_rate']}%")
+            if 'category_stats' in stats:
+                md_lines.append("\n| Category | Count | Percentage |")
+                md_lines.append("|---|---|---|")
+                for cat, val in stats['category_stats'].items():
+                    # val is {count, percentage}
+                    md_lines.append(f"| {cat} | {val['count']} | {val['percentage']}% |")
+            md_lines.append("\n")
+            
+    md_content = "\n".join(md_lines)
+    
+    return StreamingResponse(
+        io.BytesIO(md_content.encode()),
+        media_type="text/markdown",
+        headers={"Content-Disposition": "attachment; filename=nps_analysis_open_ended.md"}
+    )
 
 @app.post("/analyze/response-rates")
 async def analyze_response_rates(request: AnalysisRequest):
