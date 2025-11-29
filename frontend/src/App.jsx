@@ -91,9 +91,7 @@ function App() {
                 Reset Data
               </button>
               <span className="text-sm text-slate-500">Last updated: Today</span>
-              <div className="w-8 h-8 bg-brand-100 rounded-full flex items-center justify-center text-brand-600 font-bold text-xs">
-                HK
-              </div>
+
             </div>
           </header>
 
