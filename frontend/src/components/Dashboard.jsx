@@ -362,6 +362,19 @@ const Dashboard = ({ columns, weightingConfig, dataVersion }) => {
             csvContent += `Passives %,${metricsResults.nps?.breakdown?.passives || 0}\n`;
             csvContent += `Detractors %,${metricsResults.nps?.breakdown?.detractors || 0}\n`;
 
+            // Score Distribution
+            if (metricsResults.nps?.distribution) {
+                csvContent += "\nScore Distribution\n";
+                csvContent += "Score,Count,Percent\n";
+                // Sort 10 to 0
+                [...Array(11)].forEach((_, i) => {
+                    const score = 10 - i;
+                    const data = metricsResults.nps.distribution[score.toString()] || { count: 0, percent: 0 };
+                    csvContent += `${score},${data.count},${Number(data.percent).toFixed(1)}%\n`;
+                });
+                csvContent += "\n";
+            }
+
             // Top Box
             Object.entries(metricsResults.top_box_3_percent).forEach(([col, score]) => {
                 csvContent += `Top 3 Box % (${col}),${Number(score).toFixed(1)}\n`;
@@ -499,18 +512,6 @@ const Dashboard = ({ columns, weightingConfig, dataVersion }) => {
                                     <span className="text-2xl">📊</span>
                                     <h3 className="text-lg font-bold text-slate-800">Quantitative Metrics</h3>
                                 </div>
-                                {metricsResults && (
-                                    <button
-                                        onClick={handleExportQuantitative}
-                                        className="flex items-center gap-2 px-3 py-1.5 text-sm font-bold text-green-700 bg-green-50 hover:bg-green-100 rounded-lg transition-colors"
-                                        title="Export to Excel"
-                                    >
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                        </svg>
-                                        Export CSV
-                                    </button>
-                                )}
                             </div>
 
                             <div className="space-y-6 flex-1">
@@ -576,6 +577,19 @@ const Dashboard = ({ columns, weightingConfig, dataVersion }) => {
                                         </span>
                                     </div>
                                 )}
+                                <div className="flex items-center justify-between">
+                                    <h4 className="text-lg font-bold text-slate-800">Analysis Results</h4>
+                                    <button
+                                        onClick={handleExportQuantitative}
+                                        className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-white bg-green-600 hover:bg-green-700 rounded-xl shadow-sm transition-all active:scale-95"
+                                        title="Export to CSV"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                        </svg>
+                                        Export CSV
+                                    </button>
+                                </div>
                                 <ScoreCard
                                     title="NPS Score"
                                     value={metricsResults.nps?.score !== undefined ? Number(metricsResults.nps.score).toFixed(1) : Number(metricsResults.nps).toFixed(1)}
