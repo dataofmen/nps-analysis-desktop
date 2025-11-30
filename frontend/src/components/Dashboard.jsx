@@ -106,10 +106,10 @@ const MultiResultCard = ({ title, data = {}, color, icon, subtext }) => {
                         <div key={key}>
                             <div className="flex justify-between items-end mb-1">
                                 <span className="text-xs font-medium text-slate-600 truncate max-w-[70%]">{key}</span>
-                                <span className={`text-lg font-bold ${theme.split(' ')[0]}`}>{Number(value).toFixed(1)}%</span>
+                                <span className={`text-lg font-bold ${theme.split(' ')[0]}`}>{Number(value.percentage).toFixed(1)}%</span>
                             </div>
                             <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-                                <div className={`h-full rounded-full ${barColor}`} style={{ width: `${Math.min(value || 0, 100)}%` }}></div>
+                                <div className={`h-full rounded-full ${barColor}`} style={{ width: `${Math.min(value.percentage || 0, 100)}%` }}></div>
                             </div>
                         </div>
                     ))
@@ -440,34 +440,10 @@ const Dashboard = ({ columns, weightingConfig, dataVersion }) => {
                         if (stats.category_stats && Object.keys(stats.category_stats).length > 0) {
                             // Add a row for each category
                             Object.entries(stats.category_stats).forEach(([cat, val]) => {
-                                // val is likely just percentage number based on previous code, 
-                                // BUT wait, let's verify what `stats` actually contains.
-                                // In `analyze_response_rates` (backend), it calls `calculate_category_stats`.
-                                // `calculate_category_stats` returns a dict of {category: percentage} OR {category: {count, percentage}}?
-                                // Let's look at `analysis.py` or assume based on `MultiResultCard` usage.
-                                // `MultiResultCard` uses `Object.entries(data).map(([key, value]) => ... value.toFixed(1)%)`.
-                                // So `val` is a NUMBER (percentage).
-                                // Wait, if it's just percentage, where is the count?
-                                // The backend `calculate_category_stats` seems to return just percentages if we look at `MultiResultCard`.
-                                // BUT `export_open_ended` in backend (which we are replacing) had logic:
-                                // `val['count']` and `val['percentage']`.
-                                // Let's check `backend/main.py` again.
-                                // Line 320: `f"| {cat} | {val['count']} | {val['percentage']}% |"`
-                                // So `val` IS a dict {count, percentage} in the BACKEND export.
-                                // BUT `analyze_response_rates` returns `results[col] = col_results`.
-                                // `col_results[seg_name] = stats`.
-                                // `stats` comes from `analysis.calculate_category_stats`.
-
-                                // Let's assume for now it matches what `MultiResultCard` expects.
-                                // `MultiResultCard` expects `value` to be a number (percentage).
-                                // If `value` is an object, `Number(value)` would be NaN.
-                                // So `MultiResultCard` implies `stats` is { "Category": 50.0, ... }.
-                                // If so, we don't have the count here on the frontend?
-                                // Let's check `analysis.py` to be sure.
-                                // I'll assume it's just percentage for now to be safe with `MultiResultCard` compatibility.
-                                // If `val` is a number:
-                                const percent = Number(val).toFixed(1);
-                                csvContent += `${baseInfo},"${cat.replace(/"/g, '""')}",-,${percent}%\n`;
+                                // val is {count, percentage}
+                                const percent = Number(val.percentage).toFixed(1);
+                                const count = val.count;
+                                csvContent += `${baseInfo},"${cat.replace(/"/g, '""')}",${count},${percent}%\n`;
                             });
                         } else {
                             // No categories, just segment info
@@ -788,10 +764,10 @@ const Dashboard = ({ columns, weightingConfig, dataVersion }) => {
                                                 <MultiResultCard
                                                     key={segName}
                                                     title={`${segName}`}
-                                                    data={stats}
+                                                    data={stats.category_stats}
                                                     color={segName.includes('Detractor') || segName.includes('At-Risk') ? 'purple' : 'green'}
                                                     icon={null}
-                                                    subtext={`${Object.keys(stats).length} Categories`}
+                                                    subtext={`${Object.keys(stats.category_stats || {}).length} Categories`}
                                                 />
                                             ))}
                                         </div>

@@ -253,7 +253,10 @@ def calculate_category_stats(df: pd.DataFrame, column: str, id_column: str = Non
             
             # Format key: "Sub (Parent)"
             key = f"{cat} ({parent})"
-            stats[key] = round((count / total_base) * 100, 1)
+            stats[key] = {
+                "count": round(count, 1),
+                "percentage": round((count / total_base) * 100, 1)
+            }
             
     else:
         # Original logic: Group by Category only
@@ -274,7 +277,10 @@ def calculate_category_stats(df: pd.DataFrame, column: str, id_column: str = Non
                 else:
                     count = len(cat_df)
             
-            stats[str(cat)] = round((count / total_base) * 100, 1)
+            stats[str(cat)] = {
+                "count": round(count, 1),
+                "percentage": round((count / total_base) * 100, 1)
+            }
         
     # Sort by percentage descending
-    return dict(sorted(stats.items(), key=lambda item: item[1], reverse=True))
+    return dict(sorted(stats.items(), key=lambda item: item[1]['percentage'], reverse=True))

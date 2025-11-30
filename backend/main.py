@@ -411,6 +411,25 @@ async def analyze_response_rates(request: AnalysisRequest):
                 # Calculate stats for this segment
                 # Note: We must use the SAME weight column. 
                 # If weighting was applied, 'Weight' is in seg_df (subset of merged_df).
+                # Calculate Base N (Total Count)
+                total_count = 0
+                if id_col and id_col in seg_df.columns:
+                    if weight_col and weight_col in seg_df.columns:
+                         unique_weights = seg_df[[id_col, weight_col]].drop_duplicates(subset=[id_col])
+                         total_count = unique_weights[weight_col].sum()
+                    else:
+                         total_count = seg_df[id_col].nunique()
+                else:
+                    if weight_col and weight_col in seg_df.columns:
+                         total_count = seg_df[weight_col].sum()
+                    else:
+                         total_count = len(seg_df)
+
+                # Calculate Response Rate
+                rr_dict = analysis.calculate_response_rate(seg_df, [col], id_column=id_col, weight_column=weight_col)
+                response_rate = rr_dict.get(col, 0.0)
+
+                # Calculate Stats
                 stats = analysis.calculate_category_stats(
                     seg_df, 
                     col, 
@@ -418,7 +437,12 @@ async def analyze_response_rates(request: AnalysisRequest):
                     weight_column=weight_col,
                     parent_column=parent_col
                 )
-                col_results[seg_name] = stats
+                
+                col_results[seg_name] = {
+                    "total_count": round(total_count, 1),
+                    "response_rate": response_rate,
+                    "category_stats": stats
+                }
             results[col] = col_results
     
     return {
