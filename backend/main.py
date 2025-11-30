@@ -15,6 +15,8 @@ import analysis
 print("DEBUG: Imported analysis", flush=True)
 import food_nps
 print("DEBUG: Imported food_nps", flush=True)
+from fastapi.responses import StreamingResponse
+import io
 
 app = FastAPI(title="NPS Analysis Tool")
 
@@ -140,20 +142,6 @@ async def preview_segments(request: PreviewRequest):
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-@app.post("/analyze")
-async def analyze_data(request: AnalysisRequest):
-    # Use qualtrics data for analysis to ensure 1 row per respondent
-    df = data_store["qualtrics"]
-    if df is None:
-        df = data_store["merged"]
-        
-    if df is None:
-        raise HTTPException(status_code=400, detail="No data uploaded")
-    
-from fastapi.responses import StreamingResponse
-import io
-
-# ... (imports)
 
 def perform_analysis(request: AnalysisRequest, df: pd.DataFrame):
     # Apply weighting if config provided
