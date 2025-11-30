@@ -383,19 +383,30 @@ const Dashboard = ({ columns, weightingConfig, dataVersion }) => {
             // 2. Segmented Results
             if (metricsResults.segmented_results && Object.keys(metricsResults.segmented_results).length > 0) {
                 csvContent += "\n\nSegmented Analysis\n";
-                csvContent += "Group Column,Group Value,NPS,Top Box %\n";
+
+                // Get all Top Box columns
+                const topBoxCols = Object.keys(metricsResults.top_box_3_percent);
+
+                // Header
+                csvContent += "Group Column,Group Value,NPS";
+                topBoxCols.forEach(col => {
+                    csvContent += `,Top Box % (${col})`;
+                });
+                csvContent += "\n";
 
                 Object.entries(metricsResults.segmented_results).forEach(([groupCol, groupData]) => {
                     Object.entries(groupData).forEach(([groupVal, stats]) => {
-                        // Handle multiple top box columns by joining them or just taking the first?
-                        // For CSV simplicity, let's just list them.
-                        const topBoxStr = Object.entries(stats.top_box_3_percent)
-                            .map(([k, v]) => `${k}: ${Number(v).toFixed(1)}%`)
-                            .join("; ");
-
                         // Escape commas in values
                         const safeGroupVal = `"${groupVal.replace(/"/g, '""')}"`;
-                        csvContent += `"${groupCol}",${safeGroupVal},${Number(stats.nps).toFixed(1)},"${topBoxStr}"\n`;
+
+                        csvContent += `"${groupCol}",${safeGroupVal},${Number(stats.nps).toFixed(1)}`;
+
+                        // Add each Top Box column value
+                        topBoxCols.forEach(col => {
+                            const val = stats.top_box_3_percent[col];
+                            csvContent += `,${val !== undefined ? Number(val).toFixed(1) + '%' : '-'}`;
+                        });
+                        csvContent += "\n";
                     });
                 });
             }
