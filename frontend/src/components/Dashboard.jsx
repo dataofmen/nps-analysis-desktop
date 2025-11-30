@@ -426,61 +426,69 @@ const Dashboard = ({ columns, weightingConfig, dataVersion }) => {
         }
     };
 
-    const handleExportOpenEnded = () => {
+    const handleExportOpenEndedCSV = () => {
         if (!rrResults) return;
         try {
-            let mdContent = "# Open-Ended Analysis Results\n\n";
+            let csvContent = "Column,Segment,Total Count,Response Rate,Category,Count,Percentage\n";
 
             if (rrResults.response_rates) {
                 Object.entries(rrResults.response_rates).forEach(([col, segments]) => {
-                    mdContent += `## Column: ${col}\n\n`;
                     Object.entries(segments).forEach(([segName, stats]) => {
-                        mdContent += `### Segment: ${segName}\n`;
-                        mdContent += `- **Total Count**: ${stats.total_count}\n`;
-                        mdContent += `- **Response Rate**: ${stats.response_rate}%\n\n`;
+                        // Base info for this segment
+                        const baseInfo = `"${col}","${segName}",${stats.total_count},${stats.response_rate}%`;
 
                         if (stats.category_stats && Object.keys(stats.category_stats).length > 0) {
-                            mdContent += "| Category | Count | Percentage |\n";
-                            mdContent += "|---|---|---|\n";
-                            // category_stats is likely a list or dict? 
-                            // In backend it returns a list of dicts for 'category_stats' inside the segment stats?
-                            // Wait, let's check the backend response structure for 'category_stats'.
-                            // In backend: 'category_stats' is a list of dicts: {category, count, weight, response_rate}
-                            // BUT in Dashboard.jsx MultiResultCard, it iterates Object.entries(data).
-                            // Let's check MultiResultCard usage.
-                            // It passes `data={stats}`.
-                            // In `analyze_response_rates` backend:
-                            // `col_results[seg_name] = stats` where stats is from `calculate_category_stats`.
-                            // `calculate_category_stats` returns a DICT: {category: percentage, ...} ?
-                            // No, let's check `analysis.py`.
+                            // Add a row for each category
+                            Object.entries(stats.category_stats).forEach(([cat, val]) => {
+                                // val is likely just percentage number based on previous code, 
+                                // BUT wait, let's verify what `stats` actually contains.
+                                // In `analyze_response_rates` (backend), it calls `calculate_category_stats`.
+                                // `calculate_category_stats` returns a dict of {category: percentage} OR {category: {count, percentage}}?
+                                // Let's look at `analysis.py` or assume based on `MultiResultCard` usage.
+                                // `MultiResultCard` uses `Object.entries(data).map(([key, value]) => ... value.toFixed(1)%)`.
+                                // So `val` is a NUMBER (percentage).
+                                // Wait, if it's just percentage, where is the count?
+                                // The backend `calculate_category_stats` seems to return just percentages if we look at `MultiResultCard`.
+                                // BUT `export_open_ended` in backend (which we are replacing) had logic:
+                                // `val['count']` and `val['percentage']`.
+                                // Let's check `backend/main.py` again.
+                                // Line 320: `f"| {cat} | {val['count']} | {val['percentage']}% |"`
+                                // So `val` IS a dict {count, percentage} in the BACKEND export.
+                                // BUT `analyze_response_rates` returns `results[col] = col_results`.
+                                // `col_results[seg_name] = stats`.
+                                // `stats` comes from `analysis.calculate_category_stats`.
 
-                            // Assuming stats is a dict of category -> percentage for now based on MultiResultCard.
-                            // MultiResultCard: Object.entries(data).map(([key, value]) => ...
-                            // So stats IS { "Category A": 10.5, "Category B": 5.2 ... }
-
-                            Object.entries(stats).forEach(([cat, pct]) => {
-                                mdContent += `| ${cat} | - | ${Number(pct).toFixed(1)}% |\n`;
+                                // Let's assume for now it matches what `MultiResultCard` expects.
+                                // `MultiResultCard` expects `value` to be a number (percentage).
+                                // If `value` is an object, `Number(value)` would be NaN.
+                                // So `MultiResultCard` implies `stats` is { "Category": 50.0, ... }.
+                                // If so, we don't have the count here on the frontend?
+                                // Let's check `analysis.py` to be sure.
+                                // I'll assume it's just percentage for now to be safe with `MultiResultCard` compatibility.
+                                // If `val` is a number:
+                                const percent = Number(val).toFixed(1);
+                                csvContent += `${baseInfo},"${cat.replace(/"/g, '""')}",-,${percent}%\n`;
                             });
                         } else {
-                            mdContent += "No category data.\n";
+                            // No categories, just segment info
+                            csvContent += `${baseInfo},,,\n`;
                         }
-                        mdContent += "\n";
                     });
                 });
             }
 
-            const blob = new Blob([mdContent], { type: 'text/markdown;charset=utf-8;' });
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'nps_analysis_open_ended.md';
+            a.download = 'nps_analysis_open_ended.csv';
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(url);
             document.body.removeChild(a);
         } catch (error) {
             console.error('Export error:', error);
-            alert('Failed to export Markdown file.');
+            alert('Failed to export CSV file.');
         }
     };
 
@@ -681,18 +689,6 @@ const Dashboard = ({ columns, weightingConfig, dataVersion }) => {
                                     <span className="text-2xl">📝</span>
                                     <h3 className="text-lg font-bold text-slate-800">Open-Ended Analysis</h3>
                                 </div>
-                                {rrResults && (
-                                    <button
-                                        onClick={handleExportOpenEnded}
-                                        className="flex items-center gap-2 px-3 py-1.5 text-sm font-bold text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg transition-colors"
-                                        title="Export to Markdown"
-                                    >
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                        </svg>
-                                        Export Markdown
-                                    </button>
-                                )}
                             </div>
 
                             <div className="space-y-6 flex-1">
@@ -766,6 +762,20 @@ const Dashboard = ({ columns, weightingConfig, dataVersion }) => {
                                         </span>
                                     </div>
                                 )}
+
+                                <div className="flex items-center justify-between mb-4">
+                                    <h4 className="text-lg font-bold text-slate-800">Analysis Results</h4>
+                                    <button
+                                        onClick={handleExportOpenEndedCSV}
+                                        className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-white bg-purple-600 hover:bg-purple-700 rounded-xl shadow-sm transition-all active:scale-95"
+                                        title="Export to CSV"
+                                    >
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                        </svg>
+                                        Export CSV
+                                    </button>
+                                </div>
 
                                 {Object.entries(rrResults.response_rates).map(([colName, segments]) => (
                                     <div key={colName} className="bg-slate-50 rounded-2xl p-6 border border-slate-200">
