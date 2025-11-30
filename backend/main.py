@@ -670,13 +670,17 @@ async def get_food_nps_status():
 if __name__ == "__main__":
     import sys
     import os
+    import tempfile
     
-    # Write to a log file in the current directory
-    log_file = os.path.join(os.getcwd(), "backend_startup.log")
-    with open(log_file, "w") as f:
-        f.write("Starting backend...\n")
-        
+    # Write to a log file in the temp directory to avoid permission errors in .app bundle
+    log_dir = tempfile.gettempdir()
+    log_file = os.path.join(log_dir, "nps_backend_startup.log")
+    
     try:
+        with open(log_file, "w") as f:
+            f.write(f"Starting backend from {os.getcwd()}...\n")
+            f.write(f"Executable: {sys.executable}\n")
+            
         import uvicorn
         import multiprocessing
         
@@ -688,9 +692,16 @@ if __name__ == "__main__":
         with open(log_file, "a") as f:
             f.write("Starting uvicorn...\n")
             
+        # Print to stdout so Electron can capture it too
+        print(f"Backend logging to {log_file}", flush=True)
+            
         uvicorn.run(app, host="0.0.0.0", port=8000)
     except Exception as e:
-        with open(log_file, "a") as f:
-            f.write(f"Error: {str(e)}\n")
-            import traceback
-            traceback.print_exc(file=f)
+        try:
+            with open(log_file, "a") as f:
+                f.write(f"Error: {str(e)}\n")
+                import traceback
+                traceback.print_exc(file=f)
+        except:
+            # If we can't even write to temp, just print to stderr
+            print(f"Critical Error: {e}", file=sys.stderr)

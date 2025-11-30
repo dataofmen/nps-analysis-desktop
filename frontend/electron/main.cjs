@@ -30,25 +30,56 @@ function getBackendPath() {
     }
 }
 
+const fs = require('fs');
+
+function logToFile(message) {
+    const logPath = path.join(app.getPath('userData'), 'nps_app_debug.log');
+    const timestamp = new Date().toISOString();
+    const logMessage = `[${timestamp}] ${message}\n`;
+    try {
+        fs.appendFileSync(logPath, logMessage);
+    } catch (e) {
+        console.error("Failed to write to log file:", e);
+    }
+}
+
 function startBackend() {
     const backendPath = getBackendPath();
     console.log('Starting backend from:', backendPath);
+    logToFile(`Starting backend from: ${backendPath}`);
 
-    backendProcess = spawn(backendPath, [], {
-        cwd: isDev ? undefined : process.resourcesPath
-    });
+    // Set CWD to a writable temp directory to avoid permission errors
+    // process.resourcesPath is read-only in packaged apps
+    const cwd = isDev ? undefined : app.getPath('temp');
+    logToFile(`Backend CWD: ${cwd}`);
 
-    backendProcess.stdout.on('data', (data) => {
-        console.log(`Backend: ${data}`);
-    });
+    try {
+        backendProcess = spawn(backendPath, [], {
+            cwd: cwd
+        });
 
-    backendProcess.stderr.on('data', (data) => {
-        console.error(`Backend Error: ${data}`);
-    });
+        backendProcess.stdout.on('data', (data) => {
+            console.log(`Backend: ${data}`);
+            logToFile(`Backend: ${data}`);
+        });
 
-    backendProcess.on('close', (code) => {
-        console.log(`Backend process exited with code ${code}`);
-    });
+        backendProcess.stderr.on('data', (data) => {
+            console.error(`Backend Error: ${data}`);
+            logToFile(`Backend Error: ${data}`);
+        });
+
+        backendProcess.on('close', (code) => {
+            console.log(`Backend process exited with code ${code}`);
+            logToFile(`Backend process exited with code ${code}`);
+        });
+
+        backendProcess.on('error', (err) => {
+            console.error(`Failed to start backend process: ${err}`);
+            logToFile(`Failed to start backend process: ${err}`);
+        });
+    } catch (err) {
+        logToFile(`Exception spawning backend: ${err}`);
+    }
 }
 
 function checkBackendHealth() {
