@@ -262,6 +262,21 @@ const Dashboard = ({ columns, weightingConfig, dataVersion }) => {
         setLoadingMetrics(true);
         setMetricsResults(null);
 
+        // Helper for logging
+        const log = (msg) => {
+            console.log(msg);
+            try {
+                if (window.require) {
+                    const { ipcRenderer } = window.require('electron');
+                    ipcRenderer.send('log-to-file', msg);
+                }
+            } catch (e) {
+                // Ignore if not in Electron
+            }
+        };
+
+        log(`Starting analysis for NPS Column: ${npsCol}`);
+
         try {
             const response = await fetch('http://localhost:8000/analyze', {
                 method: 'POST',
@@ -276,15 +291,23 @@ const Dashboard = ({ columns, weightingConfig, dataVersion }) => {
                 }),
             });
 
+            log(`Analysis response status: ${response.status}`);
+
             if (!response.ok) {
                 const errorData = await response.json();
-                throw new Error(errorData.detail || 'Metrics analysis failed');
+                const errorMsg = errorData.detail || 'Metrics analysis failed';
+                log(`Analysis failed: ${errorMsg}`);
+                throw new Error(errorMsg);
             }
 
             const data = await response.json();
+            log(`Analysis success. Data keys: ${Object.keys(data).join(', ')}`);
+            log(`NPS Data: ${JSON.stringify(data.nps)}`);
+
             setMetricsResults(data);
         } catch (error) {
             console.error(error);
+            log(`Analysis Exception: ${error.message}`);
             alert(`Metrics Error: ${error.message}`);
         } finally {
             setLoadingMetrics(false);

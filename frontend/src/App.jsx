@@ -25,6 +25,49 @@ function App() {
     }
   };
 
+  class ErrorBoundary extends React.Component {
+    constructor(props) {
+      super(props);
+      this.state = { hasError: false, error: null };
+    }
+
+    static getDerivedStateFromError(error) {
+      return { hasError: true, error };
+    }
+
+    componentDidCatch(error, errorInfo) {
+      console.error("Uncaught error:", error, errorInfo);
+      try {
+        if (window.require) {
+          const { ipcRenderer } = window.require('electron');
+          ipcRenderer.send('log-to-file', `React Error: ${error.toString()}`);
+          ipcRenderer.send('log-to-file', `Component Stack: ${errorInfo.componentStack}`);
+        }
+      } catch (e) {
+        // Ignore
+      }
+    }
+
+    render() {
+      if (this.state.hasError) {
+        return (
+          <div className="p-6 bg-red-50 border border-red-200 rounded-xl text-red-700">
+            <h2 className="text-lg font-bold mb-2">Something went wrong.</h2>
+            <p className="text-sm">{this.state.error && this.state.error.toString()}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-bold"
+            >
+              Reload App
+            </button>
+          </div>
+        );
+      }
+
+      return this.props.children;
+    }
+  }
+
   const handleReset = async () => {
     try {
       await fetch('http://localhost:8000/reset', { method: 'POST' });
@@ -100,7 +143,9 @@ function App() {
             {columns.length > 0 && (
               <>
                 <WeightingConfig columns={columns} onConfigChange={setWeightingConfig} dataVersion={dataVersion} />
-                <Dashboard columns={columns} weightingConfig={weightingConfig} dataVersion={dataVersion} />
+                <ErrorBoundary>
+                  <Dashboard columns={columns} weightingConfig={weightingConfig} dataVersion={dataVersion} />
+                </ErrorBoundary>
               </>
             )}
           </div>

@@ -1,4 +1,14 @@
-const { app, BrowserWindow } = require('electron');
+const { app, BrowserWindow, ipcMain } = require('electron');
+// ... (imports)
+
+// ... (logToFile function)
+
+// Listen for logs from renderer
+ipcMain.on('log-to-file', (event, message) => {
+    logToFile(`[Renderer] ${message}`);
+});
+
+// ... (rest of file)
 const path = require('path');
 const { spawn } = require('child_process');
 const http = require('http');
