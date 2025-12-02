@@ -110,9 +110,15 @@ const FoodNpsResults = ({ triggerAnalysis }) => {
             </span>
             <span className="text-sm font-medium text-slate-400">Score</span>
           </div>
-          <div className="mt-4 flex items-center gap-2 text-xs font-medium text-slate-500 bg-slate-50 w-fit px-2 py-1 rounded-lg">
-            <span>Scale Factor:</span>
-            <span className="text-slate-700">{results.scale_factor.toFixed(4)}</span>
+          <div className="mt-4 flex flex-col gap-2">
+            <div className="flex items-center gap-2 text-xs font-medium text-slate-500 bg-slate-50 w-fit px-2 py-1 rounded-lg">
+              <span>Actual Respondents:</span>
+              <span className="text-slate-700 font-bold">{results.total_responses.toLocaleString()}</span>
+            </div>
+            <div className="flex items-center gap-2 text-xs font-medium text-slate-500 bg-slate-50 w-fit px-2 py-1 rounded-lg">
+              <span>Scale Factor:</span>
+              <span className="text-slate-700">{results.scale_factor.toFixed(4)}</span>
+            </div>
           </div>
         </div>
 
