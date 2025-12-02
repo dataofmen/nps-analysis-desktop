@@ -280,6 +280,36 @@ def calculate_food_nps_with_weighting(
         'demographic_breakdown': demographic_breakdown
     }
 
+    # Generate Weighting Report (Detailed Table)
+    weighting_report = []
+    total_responses = len(merged_df)
+    
+    # Group by segment to get unique segments with their stats
+    # Note: merged_df has one row per respondent. We need one row per segment.
+    # We can use the 'demographic_breakdown' loop logic but we need specific columns.
+    
+    for segment_cols_values, group in merged_df.groupby(merge_cols):
+        segment_dict = dict(zip(merge_cols, segment_cols_values))
+        
+        # All rows in group have same sample_count, mem_rate, normalized_weight (approx)
+        # Take the first row's values
+        first_row = group.iloc[0]
+        
+        sample_count = len(group)
+        sample_proportion = sample_count / total_responses if total_responses > 0 else 0
+        mem_rate = first_row['mem_rate'] if pd.notna(first_row['mem_rate']) else 0
+        weight = first_row['normalized_weight']
+        
+        segment_dict.update({
+            'sample_count': sample_count,
+            'sample_proportion': round(sample_proportion, 4),
+            'population_proportion': round(mem_rate, 4),
+            'applied_weight': round(weight, 4)
+        })
+        weighting_report.append(segment_dict)
+        
+    result['weighting_report'] = weighting_report
+
     # Add category analysis if coding data provided
     if coding_df is not None:
         category_analysis = calculate_category_response_rates(

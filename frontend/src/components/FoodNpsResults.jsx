@@ -89,6 +89,32 @@ const FoodNpsResults = ({ triggerAnalysis }) => {
     );
   }
 
+  const handleExportWeightingReport = () => {
+    if (!results || !results.weighting_report) return;
+
+    const report = results.weighting_report;
+    if (report.length === 0) return;
+
+    // Get headers from the first item
+    const headers = Object.keys(report[0]);
+
+    // Create CSV content
+    const csvContent = [
+      headers.join(','),
+      ...report.map(row => headers.map(header => row[header]).join(','))
+    ].join('\n');
+
+    // Create download link
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'food_nps_weighting_report.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const getNpsColor = (nps) => {
     if (nps >= 50) return 'text-green-600';
     if (nps >= 0) return 'text-yellow-600';
@@ -103,7 +129,17 @@ const FoodNpsResults = ({ triggerAnalysis }) => {
           <div className="absolute top-0 right-0 p-4 opacity-10">
             <svg className="w-24 h-24" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-4h2v2h-2zm0-2h2V7h-2z" /></svg>
           </div>
-          <p className="text-sm font-bold text-slate-500 uppercase tracking-wide">Weighted NPS</p>
+          <div className="flex justify-between items-center">
+            <p className="text-sm font-bold text-slate-500 uppercase tracking-wide">Weighted NPS</p>
+            <button
+              onClick={handleExportWeightingReport}
+              className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-1 px-3 rounded transition-colors flex items-center gap-1"
+              title="Export Weighting Report"
+            >
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+              Export Report
+            </button>
+          </div>
           <div className="mt-4 flex items-baseline gap-2">
             <span className={`text-5xl font-black tracking-tight ${getNpsColor(results.nps_score)}`}>
               {results.nps_score.toFixed(1)}
