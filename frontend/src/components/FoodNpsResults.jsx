@@ -119,6 +119,21 @@ const FoodNpsResults = ({ triggerAnalysis }) => {
               <span>Scale Factor:</span>
               <span className="text-slate-700">{results.scale_factor.toFixed(4)}</span>
             </div>
+            {results.weight_stats && (
+              <>
+                <div className={`flex items-center gap-2 text-xs font-medium w-fit px-2 py-1 rounded-lg ${results.weight_stats.max_weight > 3.0 ? 'bg-red-50 text-red-600' : 'bg-slate-50 text-slate-500'}`}>
+                  <span>Max Weight:</span>
+                  <span className="font-bold">{results.weight_stats.max_weight.toFixed(2)}</span>
+                  {results.weight_stats.max_weight > 3.0 && (
+                    <span className="text-[10px] bg-red-100 px-1 rounded">High</span>
+                  )}
+                </div>
+                <div className={`flex items-center gap-2 text-xs font-medium w-fit px-2 py-1 rounded-lg ${results.weight_stats.effective_sample_size < 100 ? 'bg-orange-50 text-orange-600' : 'bg-slate-50 text-slate-500'}`}>
+                  <span>Eff. Sample:</span>
+                  <span className="font-bold">{results.weight_stats.effective_sample_size.toLocaleString()}</span>
+                </div>
+              </>
+            )}
           </div>
         </div>
 

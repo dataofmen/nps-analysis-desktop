@@ -58,6 +58,21 @@ def load_food_qualtrics_data(file_content: bytes, filename: str) -> pd.DataFrame
     # Filter valid NPS scores (0-10)
     df = df[df['Q1_1'].notna() & (df['Q1_1'] >= 0) & (df['Q1_1'] <= 10)].copy()
 
+    # Filter rows with missing demographic data (as requested by user)
+    # This prevents "nan" string conversion and extreme weights for unmapped segments
+    demo_cols = ['gender', 'age_group', 'rgn_nm', 'bmclub']
+    if 'division' in df.columns:
+        demo_cols.append('division')
+    if 'is_mfo' in df.columns:
+        demo_cols.append('is_mfo')
+        
+    before_count = len(df)
+    df = df.dropna(subset=demo_cols)
+    after_count = len(df)
+    
+    if before_count > after_count:
+        print(f"ℹ️ Dropped {before_count - after_count} rows due to missing demographic data")
+
     print(f"✅ Loaded {len(df)} valid food NPS responses from {filename}")
     return df
 
@@ -225,6 +240,18 @@ def calculate_food_nps_with_weighting(
     # Calculate NPS
     nps_score = promoters_pct - detractors_pct
 
+    # Calculate NPS
+    nps_score = promoters_pct - detractors_pct
+
+    # Calculate Weight Statistics for Warning System
+    weights = merged_df['normalized_weight']
+    max_weight = weights.max()
+    min_weight = weights.min()
+    mean_weight = weights.mean()
+    cv = weights.std() / mean_weight if mean_weight > 0 else 0
+    deff = 1 + cv**2
+    n_eff = len(weights) / deff if deff > 0 else 0
+
     # Demographic breakdown
     demographic_breakdown = []
     for segment_cols_values, group in merged_df.groupby(merge_cols):
@@ -244,6 +271,12 @@ def calculate_food_nps_with_weighting(
         'passives_pct': round(passives_pct, 2),
         'detractors_pct': round(detractors_pct, 2),
         'scale_factor': round(scale_factor, 4),
+        'weight_stats': {
+            'max_weight': round(max_weight, 2),
+            'min_weight': round(min_weight, 4),
+            'design_effect': round(deff, 2),
+            'effective_sample_size': round(n_eff, 1)
+        },
         'demographic_breakdown': demographic_breakdown
     }
 
