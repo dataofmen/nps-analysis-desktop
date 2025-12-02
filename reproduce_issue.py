@@ -3,7 +3,7 @@ import io
 import chardet
 from io import BytesIO
 
-file_path = '/Users/hmkwon/Project/NPS_DP/input_data/commerce/commerce_nps_2511_rgn.csv'
+file_path = '/Users/hmkwon/Project/NPS_DP/input_data/commerce/commerce_nps_2511_rgn12.csv'
 
 print(f"Loading {file_path}...")
 with open(file_path, 'rb') as f:
