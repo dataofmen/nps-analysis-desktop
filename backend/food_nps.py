@@ -38,24 +38,9 @@ def load_food_qualtrics_data(file_content: bytes, filename: str) -> pd.DataFrame
     except:
         df = pd.read_csv(BytesIO(file_content), encoding=encoding)
 
-    # Remove Qualtrics metadata rows (first 2 rows if present)
-    if len(df) > 2:
-        # Check if first row looks like metadata (Question Text)
-        # AND/OR second row looks like metadata (ImportId)
-        # Qualtrics export usually has 3 header rows: Header, Question Text, ImportId
-        first_row = df.iloc[0].astype(str).values
-        second_row = df.iloc[1].astype(str).values
-        
-        # Check for specific Qualtrics markers
-        # Row 1 often has "Start Date", "End Date"
-        is_question_text = any(v in ['Start Date', 'End Date', 'Response Type'] for v in first_row[:10])
-        
-        # Row 2 often has {"ImportId": ...}
-        is_import_id = any('{"ImportId":' in str(v) for v in second_row[:10])
-        
-        if is_question_text or is_import_id:
-            print(f"ℹ️ Detected Qualtrics metadata rows. Dropping first 2 rows.")
-            df = df.iloc[2:].reset_index(drop=True)
+    # Remove Qualtrics metadata rows logic REMOVED as per user request.
+    # We now assume the file has a standard single header row.
+    # if len(df) > 2: ... (removed)
 
     # Handle Q1 alias for Q1_1
     if 'Q1' in df.columns and 'Q1_1' not in df.columns:
