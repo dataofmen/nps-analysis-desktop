@@ -443,7 +443,8 @@ const Dashboard = ({ columns, weightingConfig, dataVersion }) => {
                                 // val is {count, percentage}
                                 const percent = Number(val.percentage).toFixed(1);
                                 const count = val.count;
-                                csvContent += `${baseInfo},"${cat.replace(/"/g, '""')}",${count},${percent}%\n`;
+                                const safeCat = cat.replace(/"/g, '""');
+                                csvContent += `${baseInfo},"${safeCat}",${count},${percent}%\n`;
                             });
                         } else {
                             // No categories, just segment info
@@ -465,6 +466,37 @@ const Dashboard = ({ columns, weightingConfig, dataVersion }) => {
         } catch (error) {
             console.error('Export error:', error);
             alert('Failed to export CSV file.');
+        }
+    };
+
+    const handleExportWeightingReport = () => {
+        if (!metricsResults || !metricsResults.weighting_report) return;
+
+        try {
+            const report = metricsResults.weighting_report;
+            if (report.length === 0) return;
+
+            // Get headers from the first item
+            const headers = Object.keys(report[0]);
+
+            // Create CSV content
+            const csvContent = [
+                headers.join(','),
+                ...report.map(row => headers.map(header => row[header]).join(','))
+            ].join('\n');
+
+            // Create download link
+            const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', 'weighting_report.csv');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } catch (error) {
+            console.error('Export error:', error);
+            alert('Failed to export weighting report.');
         }
     };
 
@@ -574,16 +606,30 @@ const Dashboard = ({ columns, weightingConfig, dataVersion }) => {
                                 )}
                                 <div className="flex items-center justify-between">
                                     <h4 className="text-lg font-bold text-slate-800">Analysis Results</h4>
-                                    <button
-                                        onClick={handleExportQuantitative}
-                                        className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-white bg-green-600 hover:bg-green-700 rounded-xl shadow-sm transition-all active:scale-95"
-                                        title="Export to CSV"
-                                    >
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                        </svg>
-                                        Export CSV
-                                    </button>
+                                    <div className="flex gap-2">
+                                        {metricsResults.weighting_report && (
+                                            <button
+                                                onClick={handleExportWeightingReport}
+                                                className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl shadow-sm transition-all active:scale-95"
+                                                title="Export Weighting Report"
+                                            >
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                </svg>
+                                                Weighting Report
+                                            </button>
+                                        )}
+                                        <button
+                                            onClick={handleExportQuantitative}
+                                            className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-white bg-green-600 hover:bg-green-700 rounded-xl shadow-sm transition-all active:scale-95"
+                                            title="Export to CSV"
+                                        >
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                            </svg>
+                                            Export CSV
+                                        </button>
+                                    </div>
                                 </div>
                                 <ScoreCard
                                     title="NPS Score"

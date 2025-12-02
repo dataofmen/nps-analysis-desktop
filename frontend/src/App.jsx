@@ -3,18 +3,12 @@ import FileUpload from './components/FileUpload';
 import WeightingConfig from './components/WeightingConfig';
 import Dashboard from './components/Dashboard';
 import Modal from './components/Modal';
-import FoodNpsUpload from './components/FoodNpsUpload';
-import FoodNpsResults from './components/FoodNpsResults';
 
 function App() {
   const [columns, setColumns] = useState([]);
   const [weightingConfig, setWeightingConfig] = useState(null);
   const [dataVersion, setDataVersion] = useState(0); // For data updates (columns)
   const [resetKey, setResetKey] = useState(0); // For forcing component reset
-
-  // Navigation State
-  const [activeTab, setActiveTab] = useState('generic'); // 'generic' | 'food'
-  const [foodAnalysisTrigger, setFoodAnalysisTrigger] = useState(0);
 
   // Modal States
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
@@ -46,8 +40,8 @@ function App() {
       try {
         if (window.require) {
           const { ipcRenderer } = window.require('electron');
-          ipcRenderer.send('log-to-file', `React Error: ${error.toString()}`);
-          ipcRenderer.send('log-to-file', `Component Stack: ${errorInfo.componentStack}`);
+          ipcRenderer.send('log-to-file', `React Error: ${error.toString()} `);
+          ipcRenderer.send('log-to-file', `Component Stack: ${errorInfo.componentStack} `);
         }
       } catch (e) {
         // Ignore
@@ -103,22 +97,9 @@ function App() {
 
         <nav className="flex-1 p-4 space-y-1">
           <button
-            onClick={() => setActiveTab('generic')}
-            className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 ${activeTab === 'generic'
-              ? 'bg-brand-50 text-brand-700 shadow-sm'
-              : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-              }`}
+            className="w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 bg-brand-50 text-brand-700 shadow-sm"
           >
             <span>📊</span> Generic Analysis
-          </button>
-          <button
-            onClick={() => setActiveTab('food')}
-            className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 ${activeTab === 'food'
-              ? 'bg-brand-50 text-brand-700 shadow-sm'
-              : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-              }`}
-          >
-            <span>🍱</span> Food NPS
           </button>
         </nav>
 
@@ -139,13 +120,10 @@ function App() {
           <header className="mb-8 flex justify-between items-center">
             <div>
               <h2 className="text-2xl font-bold text-slate-800">
-                {activeTab === 'generic' ? 'Generic NPS Analysis' : 'Food NPS Analysis'}
+                Generic NPS Analysis
               </h2>
               <p className="text-slate-500 mt-1">
-                {activeTab === 'generic'
-                  ? 'Analyze standard NPS data with customizable weighting'
-                  : 'Specialized analysis for Korean food delivery service with 241-segment weighting'
-                }
+                Analyze standard NPS data with customizable weighting
               </p>
             </div>
             <div className="flex items-center gap-3">
@@ -161,22 +139,13 @@ function App() {
           </header>
 
           <div className="animate-fade-in space-y-8">
-            {activeTab === 'generic' ? (
+            <FileUpload key={resetKey} onUploadComplete={fetchColumns} />
+            {columns.length > 0 && (
               <>
-                <FileUpload key={resetKey} onUploadComplete={fetchColumns} />
-                {columns.length > 0 && (
-                  <>
-                    <WeightingConfig columns={columns} onConfigChange={setWeightingConfig} dataVersion={dataVersion} />
-                    <ErrorBoundary>
-                      <Dashboard columns={columns} weightingConfig={weightingConfig} dataVersion={dataVersion} />
-                    </ErrorBoundary>
-                  </>
-                )}
-              </>
-            ) : (
-              <>
-                <FoodNpsUpload onUploadComplete={() => setFoodAnalysisTrigger(t => t + 1)} />
-                <FoodNpsResults triggerAnalysis={foodAnalysisTrigger} />
+                <WeightingConfig columns={columns} onConfigChange={setWeightingConfig} dataVersion={dataVersion} />
+                <ErrorBoundary>
+                  <Dashboard columns={columns} weightingConfig={weightingConfig} dataVersion={dataVersion} />
+                </ErrorBoundary>
               </>
             )}
           </div>

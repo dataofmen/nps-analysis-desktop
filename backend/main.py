@@ -217,12 +217,55 @@ def perform_analysis(request: AnalysisRequest, df: pd.DataFrame):
                 
                 segmented_results[col] = col_results
     
+    # Generate Weighting Report (Detailed Table)
+    weighting_report = []
+    if request.weighting_config and request.weighting_config.segment_columns and weight_col:
+        try:
+            total_responses = len(df)
+            # Group by segment columns
+            # We need to group by all segment columns to get unique segments
+            # The weights should be identical within each group
+            
+            # Create a grouper list
+            grouper = request.weighting_config.segment_columns
+            
+            for segment_values, group in df.groupby(grouper):
+                # segment_values can be a single value or a tuple
+                if not isinstance(segment_values, tuple):
+                    segment_values = (segment_values,)
+                
+                segment_dict = dict(zip(grouper, segment_values))
+                
+                # Get stats
+                sample_count = len(group)
+                sample_proportion = sample_count / total_responses if total_responses > 0 else 0
+                weight = group[weight_col].iloc[0]
+                
+                # Get target proportion
+                # Construct the segment key used in targets (e.g. "Male_18-24")
+                # The key format depends on how calculate_weights constructs it.
+                # In weighting.py, it joins with "_".
+                segment_key = "_".join([str(v) for v in segment_values])
+                target_prop = request.weighting_config.targets.get(segment_key, 0)
+                
+                segment_dict.update({
+                    'sample_count': sample_count,
+                    'sample_proportion': round(sample_proportion, 4),
+                    'population_proportion': round(target_prop, 4),
+                    'applied_weight': round(weight, 4)
+                })
+                weighting_report.append(segment_dict)
+                
+        except Exception as e:
+            print(f"Error generating weighting report: {e}")
+
     return {
         "nps": nps,
         "top_box_3_percent": top_box,
         "weighted": weight_col is not None,
         "excluded_count": excluded_count,
-        "segmented_results": segmented_results
+        "segmented_results": segmented_results,
+        "weighting_report": weighting_report
     }
 
 @app.post("/analyze")
