@@ -20,17 +20,9 @@ def load_qualtrics_data(file_content: bytes, filename: str) -> pd.DataFrame:
     
     # Heuristic: Check if 'ResponseId' is in columns.
     # If so, check if the first row values for 'ResponseId' are not actual IDs (e.g. they are descriptions).
-    if 'ResponseId' in df.columns:
-        # If the first value in ResponseId column is not a typical ID (e.g. it contains spaces or is 'Response ID'), drop it.
-        # Actually, Qualtrics 2nd and 3rd rows usually have specific content.
-        # Row 2 (index 0) often has "Start Date" description.
-        # Row 3 (index 1) often has "{"ImportId":...}"
-        
-        # Let's just drop the first 2 rows if the dataframe is large enough.
-        if len(df) > 2:
-             # Check if row 0 contains "Start Date" or similar metadata text in some columns
-             # This is a simple heuristic.
-             df = df.iloc[2:].reset_index(drop=True)
+    # Qualtrics metadata removal logic REMOVED.
+    # We assume standard single header row.
+    # if len(df) > 2: ... (removed)
     return df
 
 def merge_data(qualtrics_df: pd.DataFrame, coding_df: pd.DataFrame) -> pd.DataFrame:
