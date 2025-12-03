@@ -11,7 +11,7 @@ import data_processing
 print("DEBUG: Imported data_processing", flush=True)
 import weighting
 print("DEBUG: Imported weighting", flush=True)
-from weighting import WeightingConfig
+from weighting import WeightingConfig, assess_weight_risk
 import analysis
 print("DEBUG: Imported analysis", flush=True)
 import food_nps
