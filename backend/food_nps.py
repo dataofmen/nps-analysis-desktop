@@ -13,6 +13,7 @@ import numpy as np
 from typing import Dict, Any, Optional
 from io import BytesIO
 import chardet
+from weighting import assess_weight_risk
 
 
 def load_food_qualtrics_data(file_content: bytes, filename: str) -> pd.DataFrame:

@@ -48,7 +48,7 @@ def assess_weight_risk(weight):
     else:
         return 'Critical'
 
-def calculate_weights(df: pd.DataFrame, config: WeightingConfig) -> pd.DataFrame:
+def calculate_weights(df: pd.DataFrame, segment_columns: List[str], targets: Dict[str, float]) -> pd.DataFrame:
     """
     Calculates weights based on cell-based weighting.
     
