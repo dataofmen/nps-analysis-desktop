@@ -252,7 +252,8 @@ def perform_analysis(request: AnalysisRequest, df: pd.DataFrame):
                     'sample_count': sample_count,
                     'sample_proportion': round(sample_proportion, 4),
                     'population_proportion': round(target_prop, 4),
-                    'applied_weight': round(weight, 4)
+                    'applied_weight': round(weight, 4),
+                    'risk_level': assess_weight_risk(weight)
                 })
                 weighting_report.append(segment_dict)
                 
@@ -397,7 +398,8 @@ async def analyze_response_rates(request: AnalysisRequest):
                  raise HTTPException(status_code=400, detail="All rows excluded due to missing segment data.")
 
             # 1. Calculate weights on unique respondents
-            weighted_q_df = weighting.calculate_weights(q_df_clean, request.weighting_config.segment_columns, request.weighting_config.targets)
+            from weighting import WeightingConfig, calculate_weights, assess_weight_risk
+            weighted_q_df = calculate_weights(q_df_clean, request.weighting_config.segment_columns, request.weighting_config.targets)
             
             # 2. Map weights to merged_df using ResponseId
             # Assuming ResponseId exists in both

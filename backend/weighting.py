@@ -20,7 +20,28 @@ def get_segment_counts(df: pd.DataFrame, segment_columns: list[str]) -> list[str
         
     return sorted(segments.unique().tolist())
 
-def calculate_weights(df: pd.DataFrame, segment_columns: list[str], targets: dict[str, float]) -> pd.DataFrame:
+def assess_weight_risk(weight):
+    """
+    Assess the risk level of a weight value.
+    Based on practical criteria:
+    - Best: < 1.5
+    - Good: 1.5 <= weight < 2.0
+    - Acceptable: 2.0 <= weight < 3.0
+    - Risk: 3.0 <= weight < 5.0
+    - Critical: >= 5.0
+    """
+    if weight < 1.5:
+        return 'Best'
+    elif weight < 2.0:
+        return 'Good'
+    elif weight < 3.0:
+        return 'Acceptable'
+    elif weight < 5.0:
+        return 'Risk'
+    else:
+        return 'Critical'
+
+def calculate_weights(df: pd.DataFrame, config: WeightingConfig) -> pd.DataFrame:
     """
     Calculates weights based on cell-based weighting.
     

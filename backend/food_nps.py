@@ -304,7 +304,8 @@ def calculate_food_nps_with_weighting(
             'sample_count': sample_count,
             'sample_proportion': round(sample_proportion, 4),
             'population_proportion': round(mem_rate, 4),
-            'applied_weight': round(weight, 4)
+            'applied_weight': round(weight, 4),
+            'risk_level': assess_weight_risk(weight)
         })
         weighting_report.append(segment_dict)
         
