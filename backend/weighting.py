@@ -1,4 +1,11 @@
 import pandas as pd
+from pydantic import BaseModel
+from typing import List, Dict, Optional
+
+class WeightingConfig(BaseModel):
+    segment_columns: List[str]
+    targets: Dict[str, float] # Key: "Male_18-24", Value: 0.1
+    target_column: Optional[str] = None
 
 def get_segment_counts(df: pd.DataFrame, segment_columns: list[str]) -> list[str]:
     """

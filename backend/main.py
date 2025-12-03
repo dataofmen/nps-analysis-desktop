@@ -11,6 +11,7 @@ import data_processing
 print("DEBUG: Imported data_processing", flush=True)
 import weighting
 print("DEBUG: Imported weighting", flush=True)
+from weighting import WeightingConfig
 import analysis
 print("DEBUG: Imported analysis", flush=True)
 import food_nps
@@ -90,11 +91,6 @@ async def upload_coding(file: UploadFile = File(...)):
         return {"message": "Coding data uploaded", "columns": df.columns.tolist(), "rows": len(df)}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
-
-class WeightingConfig(BaseModel):
-    segment_columns: List[str]
-    targets: Dict[str, float] # Key: "Male_18-24", Value: 0.1
-    target_column: Optional[str] = None
 
 class AnalysisRequest(BaseModel):
     nps_column: str
@@ -398,7 +394,7 @@ async def analyze_response_rates(request: AnalysisRequest):
                  raise HTTPException(status_code=400, detail="All rows excluded due to missing segment data.")
 
             # 1. Calculate weights on unique respondents
-            from weighting import WeightingConfig, calculate_weights, assess_weight_risk
+            from weighting import calculate_weights, assess_weight_risk
             weighted_q_df = calculate_weights(q_df_clean, request.weighting_config.segment_columns, request.weighting_config.targets)
             
             # 2. Map weights to merged_df using ResponseId
