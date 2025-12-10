@@ -425,6 +425,7 @@ async def analyze_response_rates(request: AnalysisRequest):
     id_col = 'ResponseId' if 'ResponseId' in merged_df.columns else None
     
     results = {}
+    weighting_reports = {}  # Store weighting report for each segment
     
     # Pre-calculate segment masks if NPS column is provided
     segments = {"Overall": merged_df}
@@ -441,6 +442,118 @@ async def analyze_response_rates(request: AnalysisRequest):
             segments["At-Risk (0-3)"] = merged_df[nps_series <= 3]
         else:
             print(f"DEBUG: NPS column '{request.nps_column}' NOT found in merged_df columns: {merged_df.columns.tolist()}")
+    
+    # Apply subset weighting to each NPS segment if group_weighting_columns provided
+    if request.group_weighting_columns and request.weighting_config and len(request.group_weighting_columns) > 0:
+        pop_df = data_store["population"]
+        if pop_df is not None:
+            print(f"DEBUG: Applying subset weighting with columns: {request.group_weighting_columns}")
+            try:
+                # Calculate subset targets once (same for all segments)
+                subset_targets = weighting.calculate_targets(
+                    pop_df,
+                    request.group_weighting_columns,
+                    request.weighting_config.target_column
+                )
+                print(f"DEBUG: Calculated {len(subset_targets)} subset targets")
+                
+                # Apply subset weighting to each segment (except Overall)
+                weighted_segments = {}
+                for seg_name, seg_df in segments.items():
+                    if seg_name == "Overall":
+                        weighted_segments[seg_name] = seg_df
+                        continue
+                    
+                    if len(seg_df) == 0:
+                        print(f"DEBUG: Skipping empty segment: {seg_name}")
+                        weighted_segments[seg_name] = seg_df
+                        continue
+                    
+                    try:
+                        # Get unique respondents for this segment from qualtrics data
+                        if 'ResponseId' in seg_df.columns and qualtrics_df is not None:
+                            # Get unique ResponseIds in this segment
+                            segment_response_ids = seg_df['ResponseId'].unique()
+                            # Filter qualtrics_df to only these respondents
+                            seg_qualtrics_df = qualtrics_df[qualtrics_df['ResponseId'].isin(segment_response_ids)].copy()
+                            
+                            # Clean segment data
+                            for col in request.group_weighting_columns:
+                                if col in seg_qualtrics_df.columns:
+                                    seg_qualtrics_df[col] = seg_qualtrics_df[col].replace(r'^\s*$', pd.NA, regex=True)
+                            
+                            seg_qualtrics_df = seg_qualtrics_df.dropna(subset=request.group_weighting_columns)
+                            
+                            if len(seg_qualtrics_df) == 0:
+                                print(f"DEBUG: No valid data for subset weighting in {seg_name}")
+                                weighted_segments[seg_name] = seg_df
+                                continue
+                            
+                            # Apply subset weighting to unique respondents
+                            weighted_seg_qualtrics = weighting.calculate_weights(
+                                seg_qualtrics_df,
+                                request.group_weighting_columns,
+                                subset_targets
+                            )
+                            
+                            # Map weights back to merged_df for this segment
+                            weight_map = weighted_seg_qualtrics.set_index('ResponseId')['Weight']
+                            seg_df_weighted = seg_df.copy()
+                            seg_df_weighted['Weight'] = seg_df_weighted['ResponseId'].map(weight_map)
+                            seg_df_weighted = seg_df_weighted.dropna(subset=['Weight'])
+                            
+                            weighted_segments[seg_name] = seg_df_weighted
+                            
+                            # Generate weighting report for this segment
+                            segment_report = []
+                            total_responses = len(weighted_seg_qualtrics)
+                            grouper = request.group_weighting_columns
+                            
+                            for segment_values, group in weighted_seg_qualtrics.groupby(grouper):
+                                if not isinstance(segment_values, tuple):
+                                    segment_values = (segment_values,)
+                                
+                                segment_dict = dict(zip(grouper, segment_values))
+                                
+                                sample_count = len(group)
+                                sample_proportion = sample_count / total_responses if total_responses > 0 else 0
+                                weight = group['Weight'].iloc[0]
+                                
+                                segment_key = "_".join([str(v) for v in segment_values])
+                                target_prop = subset_targets.get(segment_key, 0)
+                                
+                                segment_dict.update({
+                                    'nps_segment': seg_name,
+                                    'sample_count': sample_count,
+                                    'sample_proportion': round(sample_proportion, 4),
+                                    'population_proportion': round(target_prop, 4),
+                                    'applied_weight': round(weight, 4),
+                                    'risk_level': assess_weight_risk(weight)
+                                })
+                                segment_report.append(segment_dict)
+                            
+                            weighting_reports[seg_name] = segment_report
+                            print(f"DEBUG: Generated weighting report for {seg_name} with {len(segment_report)} rows")
+                        else:
+                            print(f"DEBUG: Cannot apply subset weighting to {seg_name}: missing ResponseId or qualtrics_df")
+                            weighted_segments[seg_name] = seg_df
+                            
+                    except Exception as e:
+                        print(f"DEBUG: Subset weighting failed for {seg_name}: {e}")
+                        import traceback
+                        traceback.print_exc()
+                        weighted_segments[seg_name] = seg_df
+                
+                # Replace segments with weighted versions
+                segments = weighted_segments
+                # Update weight column for subsequent calculations
+                if len(weighting_reports) > 0:
+                    weight_col = 'Weight'
+                    
+            except Exception as e:
+                print(f"ERROR: Failed to calculate subset targets: {e}")
+                import traceback
+                traceback.print_exc()
 
     for i, col in enumerate(request.open_end_columns):
         if col:
@@ -488,7 +601,8 @@ async def analyze_response_rates(request: AnalysisRequest):
     
     return {
         "response_rates": results,
-        "excluded_count": excluded_count
+        "excluded_count": excluded_count,
+        "weighting_reports": weighting_reports
     }
 
 @app.get("/health")

@@ -207,6 +207,7 @@ const Dashboard = ({ columns, weightingConfig, dataVersion }) => {
     const [groupWeightingCols, setGroupWeightingCols] = useState([]);
     const [openEndCols, setOpenEndCols] = useState(['', '', '']); // Level 1, 2, 3
     const [openEndNpsCol, setOpenEndNpsCol] = useState('');
+    const [openEndWeightingCols, setOpenEndWeightingCols] = useState([]);
 
     const [activeTab, setActiveTab] = useState('quantitative'); // 'quantitative' or 'open-ended'
 
@@ -246,6 +247,16 @@ const Dashboard = ({ columns, weightingConfig, dataVersion }) => {
             setGroupWeightingCols([]);
         }
     }, [groupByCols, weightingConfig]);
+
+    // Auto-set open-ended weighting columns when NPS column is selected
+    useEffect(() => {
+        if (openEndNpsCol && weightingConfig?.segment_columns) {
+            // Default: all weighting columns for open-ended analysis
+            setOpenEndWeightingCols(weightingConfig.segment_columns);
+        } else {
+            setOpenEndWeightingCols([]);
+        }
+    }, [openEndNpsCol, weightingConfig]);
 
     const [metricsResults, setMetricsResults] = useState(null);
     const [rrResults, setRrResults] = useState(null);
@@ -332,6 +343,7 @@ const Dashboard = ({ columns, weightingConfig, dataVersion }) => {
                     nps_column: openEndNpsCol, // Pass selected NPS column for segmentation
                     top_box_columns: [], // Not needed
                     open_end_columns: validCols,
+                    group_weighting_columns: openEndWeightingCols, // Pass weighting columns
                     weighting_config: weightingConfig // Pass config to enable exclusion logic
                 }),
             });
@@ -342,6 +354,9 @@ const Dashboard = ({ columns, weightingConfig, dataVersion }) => {
             }
 
             const data = await response.json();
+            console.log('DEBUG: Response data:', data);
+            console.log('DEBUG: weighting_reports:', data.weighting_reports);
+            console.log('DEBUG: openEndWeightingCols:', openEndWeightingCols);
             setRrResults(data);
         } catch (error) {
             console.error(error);
@@ -466,6 +481,46 @@ const Dashboard = ({ columns, weightingConfig, dataVersion }) => {
         } catch (error) {
             console.error('Export error:', error);
             alert('Failed to export CSV file.');
+        }
+    };
+
+    const handleExportOpenEndedWeightingReport = () => {
+        if (!rrResults || !rrResults.weighting_reports) return;
+
+        try {
+            const reports = rrResults.weighting_reports;
+            if (Object.keys(reports).length === 0) return;
+
+            // Combine all segment reports into one CSV
+            let allRows = [];
+
+            for (const [segmentName, report] of Object.entries(reports)) {
+                allRows = allRows.concat(report);
+            }
+
+            if (allRows.length === 0) return;
+
+            // Get headers from the first item
+            const headers = Object.keys(allRows[0]);
+
+            // Create CSV content
+            const csvContent = [
+                headers.join(','),
+                ...allRows.map(row => headers.map(header => row[header]).join(','))
+            ].join('\n');
+
+            // Create download link
+            const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.setAttribute('download', 'open_ended_weighting_report.csv');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } catch (error) {
+            console.error('Export error:', error);
+            alert('Failed to export weighting report.');
         }
     };
 
@@ -720,6 +775,14 @@ const Dashboard = ({ columns, weightingConfig, dataVersion }) => {
                                     onChange={e => setOpenEndNpsCol(e.target.value)}
                                     options={qualtricsCols}
                                 />
+                                {openEndNpsCol && weightingConfig?.segment_columns?.length > 0 && (
+                                    <MultiSelectField
+                                        label="Weighting Variables for Grouping"
+                                        selectedValues={openEndWeightingCols}
+                                        onChange={setOpenEndWeightingCols}
+                                        options={weightingConfig.segment_columns}
+                                    />
+                                )}
                                 <div>
                                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2">Open End Columns</label>
                                     <div className="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-100">
@@ -787,16 +850,30 @@ const Dashboard = ({ columns, weightingConfig, dataVersion }) => {
 
                                 <div className="flex items-center justify-between mb-4">
                                     <h4 className="text-lg font-bold text-slate-800">Analysis Results</h4>
-                                    <button
-                                        onClick={handleExportOpenEndedCSV}
-                                        className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-white bg-purple-600 hover:bg-purple-700 rounded-xl shadow-sm transition-all active:scale-95"
-                                        title="Export to CSV"
-                                    >
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                        </svg>
-                                        Export CSV
-                                    </button>
+                                    <div className="flex gap-2">
+                                        {rrResults.weighting_reports && Object.keys(rrResults.weighting_reports).length > 0 && (
+                                            <button
+                                                onClick={handleExportOpenEndedWeightingReport}
+                                                className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl shadow-sm transition-all active:scale-95"
+                                                title="Export Weighting Report"
+                                            >
+                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                                </svg>
+                                                Weighting Report
+                                            </button>
+                                        )}
+                                        <button
+                                            onClick={handleExportOpenEndedCSV}
+                                            className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-white bg-purple-600 hover:bg-purple-700 rounded-xl shadow-sm transition-all active:scale-95"
+                                            title="Export to CSV"
+                                        >
+                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                            </svg>
+                                            Export CSV
+                                        </button>
+                                    </div>
                                 </div>
 
                                 {Object.entries(rrResults.response_rates).map(([colName, segments]) => (
